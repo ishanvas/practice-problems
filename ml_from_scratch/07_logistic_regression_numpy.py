@@ -21,16 +21,22 @@ from testkit import close, run
 
 def sigmoid(z: np.ndarray) -> np.ndarray:
     # TODO: your code here
-    return 1/1+np.exp(-z)
+    e = np.exp(-np.abs(z))
+    return np.where(z >= 0, 1 / (1 + e), e / (1 + e))
 
 
 def loss_and_grad(w, b, X, y, l2=0.0):
     """Return (loss, dw, db)."""
     # TODO: your code here
-    p = X @ W + b
-    loss  = -(y*np.log(p) + (1-y)*np.log(1-p)) 
-    dw = y - p
-    db = y - p/p(1-p)
+    N = X.shape[0]
+    z = X @ w + b
+    p = sigmoid(z)
+    log_p   = -np.logaddexp(0, -z)    # log(p)    , stable for any z
+    log_1mp = -np.logaddexp(0,  z)    # log(1 - p), stable for any z
+    loss = np.mean(-(y * log_p + (1 - y) * log_1mp)) + (l2 / 2) * np.sum(w ** 2)
+    error = p - y 
+    dw = X.T @ error / N   + l2 * w
+    db = np.mean(error) 
     return (loss, dw, db)
 
 
@@ -41,24 +47,21 @@ def fit(X, y, lr=0.1, epochs=1000, l2=0.0):
     """Gradient descent. Return (w, b)."""
     # TODO: your code here
 
-    w = np.zeros(size=d)
-    b = np.zeros(size=1)
-
-    p = X @ W + b
+    w = np.zeros(X.shape[1])
+    b = 0.0
 
     for _ in range(epochs):
-        loss, dw, db = loss_and_grad(w, b, X, y) 
-        w += dw 
-        b += db
+        loss, dw, db = loss_and_grad(w, b, X, y, l2) 
+        w -= lr * dw 
+        b -= lr * db
 
     return (w, b)
 
-    
 
 
 def predict_proba(w, b, X):
     # TODO: your code here
-    raise NotImplementedError
+    return sigmoid(X @ w + b)
 
 
 # ------------------------------------------------------- reference solution ----
