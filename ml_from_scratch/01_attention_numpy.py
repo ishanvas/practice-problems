@@ -29,9 +29,10 @@ from testkit import close, run
 
 def softmax(x: np.ndarray, axis: int = -1) -> np.ndarray:
     """Numerically stable softmax along axis."""
-    num = np.exp(-x)
-    deno = np.sum(num, axis=axis)
-    print (f'okok {num/deno}')
+    x_scaled = x - np.max(x, axis=axis, keepdims=True)
+    num = np.exp(x_scaled)
+    deno = np.sum(num, axis=axis, keepdims=True)
+    #print (f'okok {num/deno}')
     return num/deno
     
 
@@ -47,14 +48,16 @@ def causal_mask(L: int) -> np.ndarray:
 def scaled_dot_product_attention(Q, K, V, mask=None):
     """Return (out, weights). See module docstring for shapes."""
     # TODO: your code here
-    n, d = Q.shape
-    weights = Q @ K.T/np.sqrt(d)
-    masked_weights = weights @ causal_mask(n)
-    cav = softmax(masked_weights) @ V
-    return cav
+    print('ISh')
+    d = Q.shape[-1]
+    print(f'Q.shape {Q.shape}, K shape {K.transpose().shape}')
+    weights = Q @ K.swapaxes(-1, -2) /np.sqrt(d)
+    if mask is not None:
+        weights = np.where(mask, weights, -np.inf)
+            
+    cav = softmax(weights) @ V
+    return ( cav, softmax(weights))
     
-
-
 
 # ----------------------------------------------------------------- tests ----
 

@@ -25,26 +25,57 @@ from testkit import close, run
 
 
 def softmax(x, axis=-1):
-    # TODO: your code here
-    raise NotImplementedError
+    x_scaled = x - np.max(x, axis=axis, keepdims=True)
+    expo = np.exp(x_scaled)
+    return expo/np.sum(expo, axis=axis, keepdims=True)
 
 
 def split_heads(x: np.ndarray, n_heads: int) -> np.ndarray:
     """(B, L, D) -> (B, H, L, D // H)"""
     # TODO: your code here
-    raise NotImplementedError
-
+    B,  L, D  = x.shape[0], x.shape[1], x.shape[2] 
+    return x.reshape(B, L, n_heads, D//n_heads).swapaxes(1, 2)
 
 def merge_heads(x: np.ndarray) -> np.ndarray:
     """(B, H, L, d_head) -> (B, L, H * d_head). Inverse of split_heads."""
-    # TODO: your code here
-    raise NotImplementedError
+    B,  H, L, d_head   = x.shape[0], x.shape[1], x.shape[2], x.shape[3]
+    return x.swapaxes(1 , 2).reshape(B, L, H*d_head)
 
-
+"""
+Shapes:
+  x_q:  (B, Lq, D)    x_kv: (B, Lk, D)   (self-attention: x_q is x_kv)
+  W*:   (D, D)        b*:   (D,)         (y = x @ W + b)
+  mask: optional bool, broadcastable to (B, H, Lq, Lk), True = may attend
+  -> out (B, Lq, D), weights (B, H, Lq, Lk)
+"""
 def multi_head_attention(x_q, x_kv, Wq, bq, Wk, bk, Wv, bv, Wo, bo, n_heads, mask=None):
     """Return (out, weights). See module docstring."""
     # TODO: your code here
-    raise NotImplementedError
+
+    # (B, Lq, D)  (B, D, D/ n/heads) - > (B, Lq, Dk)
+
+    K = x_kv @ Wk + bk
+    Q = x_q @ Wq + bq
+    V = x_kv @ Wv + bv
+    
+    d_head = K.shape[-1] // n_heads
+    K = split_heads(K, n_heads)
+    Q = split_heads(Q, n_heads)
+    V = split_heads(V, n_heads)
+
+    # (b, H, L, d_head) x (B, H, d_head, L) - > (B, H, L, L)
+    weights = Q @ K.swapaxes(-1, -2)/np.sqrt(d_head)
+    if mask is not None:
+        weights = np.where(mask, weights, -np.inf)
+
+    # (B, H, L, L)
+    weights = softmax(weights)
+
+    # (B, H, L, L) x (B, H, L, d_head) - > (B, H, L, d_head) -> (B, L, D) x (D, D)
+    combined = merge_heads(weights @ V) @ Wo + bo
+    return (combined, weights)
+
+
 
 
 # ----------------------------------------------------------------- tests ----
